@@ -3018,12 +3018,9 @@ def get_agent_carnet_progress():
 
 
 
+port = int(os.environ.get("PORT", 5000))
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=port)
 
-
-
-
-# if __name__ == '__main__':
-#     app.run(ssl_context=('cert.pem', 'key.pem'))
+    
