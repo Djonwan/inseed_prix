@@ -1,0 +1,168 @@
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    margin: 0;
+}
+
+
+.header {
+    background-color: #004080;
+    color: white;
+    padding: 5px 0; /* Réduire le padding pour diminuer la hauteur */
+    width: 100%;
+    text-align: center;
+}
+
+.header .logo {
+    height: 60px; /* Ajuster la hauteur de l'image si nécessaire */
+    margin: 0; /* Enlever les marges pour réduire l'espace autour de l'image */
+}
+
+#logout-button {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 5px;
+    margin: 0; /* Enlever les marges pour réduire l'espace autour du bouton */
+}
+
+#logout-button:hover {
+    background-color: #d32f2f;
+}
+
+.contenant{
+    min-height: 80vh; 
+}
+
+.container {
+    flex-grow: 1;
+}
+
+
+
+
+.input-error {
+    border-color: red;
+}
+
+.input-valid {
+    border-color: green;
+}
+
+#save-prices {
+    margin-bottom: 15px;
+    margin-top: 15px;
+}
+
+#load-more-arrow {
+    margin-bottom: 15px;
+}
+
+#load-more-arrow button {
+    background-color: red;
+    border-radius: 5px;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+#load-more-arrow button:hover {
+    background-color: darkred;
+}
+
+.footer {
+    background-color: #000;
+    color: #fff;
+    padding: 10px 0; /* Réduisez le padding ici */
+    text-align: center;
+    width: 100%;
+}
+
+.footer p {
+    margin: 0;
+    line-height: 1.6;
+}
+
+.footer .row {
+    display: flex;
+    align-items: center;
+}
+
+.footer .col-md-4 {
+    padding: 10px;
+}
+
+/* Styles for the point of collection options */
+option {
+    display: block;
+    padding: 5px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin: 5px 0;
+}
+
+.option-code {
+    font-weight: bold;
+    color: #333;
+    margin-right: 10px; 
+}
+
+.option-name {
+    color: #555;
+    margin-right: 10px;
+}
+
+.option-description {
+    color: #777;
+}
+
+/* Additional global styles for select elements */
+select {
+    background-color: #fff;
+    border: 1px solid #ccc;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 16px;
+    color: #333;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+select:focus {
+    outline: none;
+    border-color: #50b3a2;
+}
+
+select option {
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+}
+
+.titre {
+    text-align: center;
+    
+}
+
+hr{
+    margin-bottom: 25px;
+}
+
+/* Styles for the header navigation */
+.header .nav-link {
+    color: white !important;
+    /* font-size: 18px;  */
+    padding: 0 20px; /* Ajoute un espacement entre les liens */
+    margin-top: 35px;
+}
+
+.header .nav-link:hover {
+    color: #d3d3d3 !important; /* Couleur légèrement plus claire au survol */
+}
+

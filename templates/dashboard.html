@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ville et Agent</title>
+    <link rel="stylesheet" href="static/styleC.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Ajout de Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <!-- Ajout de ChartDataLabels -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <style>
+        .select-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 0px;
+        }
+        .select-container .form-group {
+            margin-right: 15px;
+        }
+        .table td {
+            vertical-align: middle;
+        }
+        .progress {
+            height: 20px;
+        }
+        .progress-text {
+            font-size: 0.9em;
+            color: #555;
+        }
+        #agentHistogram {
+            max-height: 400px;
+            margin: 20px 0;
+        }
+        /* Style pour la partie grisée de la barre de progression */
+        .progress-bar.bg-secondary {
+            background-color: #d3d3d3 !important; /* Gris clair */
+            color: #333; /* Texte sombre pour contraste */
+            font-weight: bold;
+        }
+</style>
+    <style>
+        .select-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 0px;
+        }
+        .select-container .form-group {
+            margin-right: 15px;
+        }
+        #loadingMessage, #waitingMessage {
+            text-align: center;
+            margin-top: 20px;
+        }
+        #loadingMessage {
+            display: none;
+        }
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 1; }
+        }
+        .fade-in-out {
+            animation: fadeInOut 2s infinite;
+        }
+        .table-header {
+            display: none;
+        }
+        .export-container {
+            display: none;
+            text-align: right;
+            margin-top: 20px;
+        }
+        .tete {
+            background: #004080 !important;
+            color: white !important;
+        }
+
+        .couleur{
+            color:  #ccc;        
+        }
+
+        .nav-link.active {
+            background-color: rgba(255, 0, 0, 0.1); /* Rouge léger et transparent */
+            box-shadow: 0 4px 0 0 #dc3545; /* Trait rouge en bas */
+        }
+
+         
+        .table td {
+            vertical-align: middle;
+        }
+        .progress {
+            height: 20px;
+        }
+        .progress-text {
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        /* Style pour les carrés de statistiques */
+        .stats-container {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            margin-top: 30px;
+        }
+        .stat-box {
+            flex: 1;
+            margin: 0 10px;
+            padding: 20px;
+            text-align: center;
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .stat-box h4 {
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        .stat-box p {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        .alert-container {
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .alert-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-left: 4px solid #dc3545; /* Rouge pour attirer l'attention */
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .stat-total { background-color: #808080; } /* Gris */
+        .stat-priced { background-color: #007bff; } /* Bleu */
+        .stat-rejeter { background-color: #dc3545; } /* Rouge */
+        .stat-ajuster { background-color: #ffc107; } /* Jaune */
+        .stat-valider { background-color: #28a745; } /* Vert */
+
+
+
+    </style>
+</head>
+<body>
+    
+    <header class="header d-flex align-items-center p-3 mb-4 border-bottom">
+        <div class="container text-center">
+            <div class="row">
+                <div class="col-md-2 text-left d-flex align-items-center justify-content-start">
+                    <a href="https://www.inseed.td/index.php">
+                        <img src="static/logo.png" alt="Logo INSEED Tchad" class="logo">
+                    </a>
+                </div>
+                <div class="col-md-6 text-center d-flex align-items-center justify-content-center">
+                    <nav class="nav">
+                        <a class="nav-link active" href="/dashboard">Accueil</a>
+                        <a class="nav-link" href="/controle">Control</a>
+                        <a class="nav-link" href="/releve">Relevé</a>
+                        <a class="nav-link" href="/analyse">Analyse</a>
+                        <a class="nav-link" href="/prediction">Prédiction</a>
+                    </nav>
+                </div>
+                <div class="col-md-4 text-right d-flex align-items-center justify-content-end">
+                    <div class="position-relative me-3">
+                        <button id="notification-button" class="btn position-relative px-3" data-bs-toggle="modal" data-bs-target="#alerts-modal">
+                            <i class="fa fa-bell fa-xl couleur"></i>
+                            <span id="notification-count" class="badge bg-danger position-absolute"
+                                style="font-size: 0.75rem; color: white; padding: 4px 6px; top: 4px; right: 12px; transform: translate(50%, -50%);">
+                                0
+                            </span>
+                        </button>
+                        
+                    </div>
+                    <!-- Font Awesome -->
+                    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+                    
+                    
+                    <!-- Bootstrap JS (Nécessaire pour le modal) -->
+                    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+                    <!-- Sélecteur d'années agrandi -->
+                    <select id="select-date" class="form-select me-2" style="height: 30px; width: 100px ; font-size: 18px; padding: 5px 5px; margin: 0 15px;">
+                    </select>
+                    
+                    <!-- Bouton Déconnexion -->
+                    <button id="logout-button" onclick="logout()" class="btn btn-danger">Déconnexion</button>
+                </div>
+            </div>
+        </div>
+    </header>
+    <div class="container">
+        <!-- Ajouter la modale pour les alertes -->
+        <div class="modal fade" id="alerts-modal" tabindex="-1" aria-labelledby="alertsModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4 class="modal-title" id="alertsModalLabel" style="color: black;">Alertes de traitement en retard</h4>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ul id="alerts-list" class="list-group">
+                            <!-- Les alertes seront insérées ici -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        
+        <hr>
+        <div>
+           <h2 class="titre">DASHBOARD DU CONTRÔLEUR {{ nom|default('Non assigné') }}</h2>
+        </div>
+        <hr>
+        <div class="select-container">
+            <div class="form-group">
+                <label for="select-ville">Ville:</label>
+                <select class="form-control" id="select-ville" name="select-ville">
+                    <option value="">Sélectionnez une ville</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="select-moi">Mois:</label>
+                <select class="form-control" id="select-moi" name="select-moi">
+                    <option value="">Sélectionnez un moi</option>
+                </select>
+            </div>
+        </div>
+        <hr>
+        <!-- Section pour les carrés de statistiques -->
+        <div class="stats-container">
+            <div class="stat-box stat-total">
+                <h4>Total Points</h4>
+                <p id="stat-total-points">0</p>
+            </div>
+            <div class="stat-box stat-priced">
+                <h4>Points collectés</h4>
+                <p id="stat-points-priced">0</p>
+            </div>
+            <div class="stat-box stat-rejeter">
+                <h4>Points Rejetés</h4>
+                <p id="stat-points-rejeter">0</p>
+            </div>
+            <div class="stat-box stat-ajuster">
+                <h4>Points Ajuster</h4>
+                <p id="stat-points-ajuster">0</p>
+            </div>
+            <div class="stat-box stat-valider">
+                <h4>Points Validés</h4>
+                <p id="stat-points-valider">0</p>
+            </div>
+        </div>
+        <hr>
+        
+        <!-- Section pour l'évolution des agents -->
+        <div style = "margin: 40px"  >
+            <h3 class="titre" id="agent-evolution-title">Évolution de chaque agent pour la date du ...</h3>
+        </div>
+        <table class="table">
+            <thead class="tete">
+                <tr>
+                    <th scope="col">Nom de l'agent</th>
+                    <th scope="col">Progression</th>
+                </tr>
+            </thead>
+            <tbody id="agent-progress-list">
+                <!-- Les agents et leurs progressions seront insérés ici -->
+            </tbody>
+        </table>
+        
+        <hr>
+        <div style = "margin: 40px"  >
+            <h3 class="titre" id="carnet-evolution-title">Évolution par carnet pour la date du ...</h3>
+        </div>
+        <table class="table">
+            <thead class="tete">
+                <tr>
+                    <th scope="col">Nom de l'agent</th>
+                    <th scope="col">Carnet</th>
+                    <th scope="col">Progression</th>
+                </tr>
+            </thead>
+            <tbody id="carnet-progress-list">
+                <!-- Les carnets avec agents et progressions seront insérés ici -->
+            </tbody>
+        </table>
+        <hr>
+        <div style="margin: 40px">
+            <h3 class="titre" id="collection-points-title">Points de collecte pour la ville de ...</h3>
+        </div>
+        <!-- Ajouter les filtres -->
+        <div class="row mb-2">
+            <div class="col-md-12 d-flex justify-content-end">
+                <div class="form-group m-2">
+                    <label for="filter-agent" class="form-label">Filtrer par Agent:</label>
+                    <select id="filter-agent" class="form-control">
+                        <option value="">Tous les agents</option>
+                        <!-- Options dynamiques ajoutées par JS -->
+                    </select>
+                </div>
+                <div class="form-group m-2">
+                    <label for="filter-carnet" class="form-label margin_hori">Filtrer par Carnet:</label>
+                    <select id="filter-carnet" class="form-control">
+                        <option value="">Tous les carnets</option>
+                        <!-- Options dynamiques ajoutées par JS -->
+                    </select>
+                </div>
+                <div class="form-group m-2">
+                    <label for="filter-statut" class="form-label">Filtrer par Statut:</label>
+                    <select id="filter-statut" class="form-control">
+                        <option value="">Tous</option>
+                        <option value="Valider">Valider</option>
+                        <option value="Ajuster">Ajuster</option>
+                        <option value="Rejeter">Rejeter</option>
+                        <option value="Non traité">Non traité</option>
+                        <option value="Non collecté">Non collecté</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tableau des points de collecte -->
+        <table class="table table-bordered table-striped">
+            <thead class="tete">
+                <tr>
+                    <th scope="col">Code Point Collecte</th>
+                    <th scope="col">Nom Point Collecte</th>
+                    <th scope="col">Nombre de Produits</th>
+                    <th scope="col">Statut</th>
+                    <th scope="col">Agent</th>
+                    <th scope="col">Carnet</th>
+                </tr>
+            </thead>
+            <tbody id="collection-points-list">
+                <!-- Les points de collecte seront insérés ici -->
+            </tbody>
+        </table> 
+    </div>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.18/jspdf.plugin.autotable.min.js"></script>
+    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+</html>

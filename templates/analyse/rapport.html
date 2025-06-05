@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import Indice Prix</title>
+    <link rel="stylesheet" href="static/style.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        .select-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 0px;
+        }
+        .select-container .form-group {
+            margin-right: 15px;
+        }
+        #loadingMessage, #waitingMessage {
+            text-align: center;
+            margin-top: 20px;
+        }
+        #loadingMessage {
+            display: none;
+        }
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 1; }
+        }
+        .fade-in-out {
+            animation: fadeInOut 2s infinite;
+        }
+        .table-header {
+            display: none;
+        }
+        .export-container {
+            display: block;
+            text-align: right;
+            margin-top: 20px;
+        }
+        .tete {
+            background: #004080;
+            color: white;
+        }
+
+        /* Styles for the header navigation */
+        .header .nav-link {
+            color: white !important;
+            padding: 0 15px; /* Ajoute un espacement entre les liens */
+            margin-top: 35px;
+        }
+
+        .header .nav-link:hover {
+            color: #d3d3d3 !important; /* Couleur légèrement plus claire au survol */
+        }
+
+        .nav-link.active {
+            background-color: rgba(255, 0, 0, 0.1); /* Rouge léger et transparent */
+            box-shadow: 0 4px 0 0 #dc3545; /* Trait rouge en bas */
+        }
+    </style>
+</head>
+<body>
+    <header class="header d-flex align-items-center p-3 mb-4 border-bottom">
+        <div class="container text-center">
+            <div class="row">
+                <div class="col-md-2 text-left d-flex align-items-center justify-content-start">
+                    <a href="https://www.inseed.td/index.php">
+                        <img src="static/logo.png" alt="Logo INSEED Tchad" class="logo">
+                    </a>
+                </div>
+                <div class="col-md-8 text-center d-flex align-items-center justify-content-center">
+                    <nav class="nav">
+                        <a class="nav-link" href="#">Accueil</a>
+                        <a class="nav-link" href="/controle">Control</a>
+                        <a class="nav-link" href="/releve">Relevé</a>
+                        <a class="nav-link active" href="/analyse">Analyse</a>
+                        <a class="nav-link" href="/prediction">Prédiction</a>
+                    </nav>
+                </div>
+                <div class="col-md-2 text-right d-flex align-items-center justify-content-end">
+                    <button id="logout-button" onclick="logout()" class="btn btn-danger">Déconnexion</button>
+                </div>
+            </div>
+        </div>
+    </header>  
+    <div class="container">
+        <div class="text-right d-flex align-items-center justify-content-end">
+            <a id="import-button" href="/analyse" class="btn btn-primary ml-2">Import</a>
+            <a id="indices-button" href="/indice" class="btn btn-primary ml-2">Indices</a>
+            <a id="rapport-button" href="/rapport" class="btn btn-primary ml-2" style="border: 2px solid red;">Rapport</a>
+        </div> 
+        <hr>
+        <div>
+            <h2 class="titre">Rapport Mensuel des indices de prix</h2>
+        </div>
+        <hr>
+        <div class="select-container">
+            <div class="form-group">
+                <label for="date_export">Mois:</label>
+                <select class="form-control" id="date_export" name="date_export">
+                    <option value="">Sélectionnez un mois</option>
+                </select>
+            </div>
+        </div>
+        <hr>
+        <div id="loadingMessage">
+            <i class="fas fa-spinner fa-spin"></i> Chargement en cours...
+        </div>
+        <!-- <div id="waitingMessage" class="fade-in-out">
+            <i class="fas fa-info-circle"></i> Veuillez sélectionner un mois pour afficher les données.
+        </div> -->
+        <center>
+            <div id="result">
+                <!-- Les résultats seront affichés ici sous forme de tableau -->
+            </div>
+            <canvas id="myChart" width="400" height="200"></canvas>
+        </center>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="static/scriptRa.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.18/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        function logout() {
+            // Ajoutez ici votre logique de déconnexion
+            console.log("Déconnexion");
+        }
+    </script>
+</body>
+</html>

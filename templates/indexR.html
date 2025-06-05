@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ville et Mois</title>
+    <link rel="stylesheet" href="static/styleR.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        .select-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 0px;
+        }
+        .select-container .form-group {
+            margin-right: 15px;
+        }
+        #loadingMessage, #waitingMessage {
+            text-align: center;
+            margin-top: 20px;
+        }
+        #loadingMessage {
+            display: none;
+        }
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 1; }
+        }
+        .fade-in-out {
+            animation: fadeInOut 2s infinite;
+        }
+        .table-header {
+            display: none;
+        }
+        .export-container {
+            display: block;
+            text-align: right;
+            margin-top: 20px;
+        }
+        .tete{
+            background: #004080;
+            color: white;
+        }
+
+        .nav-link.active {
+            background-color: rgba(255, 0, 0, 0.1); /* Rouge léger et transparent */
+            box-shadow: 0 4px 0 0 #dc3545; /* Trait rouge en bas */
+        }
+    </style>
+</head>
+<body>
+    <header class="header d-flex align-items-center p-3 mb-4 border-bottom">
+        <div class="container text-center">
+            <div class="row">
+                <div class="col-md-2 text-left d-flex align-items-center justify-content-start">
+                    <a href="https://www.inseed.td/index.php">
+                        <img src="static/logo.png" alt="Logo INSEED Tchad" class="logo">
+                    </a>
+                </div>
+                <div class="col-md-8 text-right d-flex align-items-center justify-content-center">
+                    <nav class="nav">
+                        <a class="nav-link" href="/dashboard">Accueil</a>
+                        <a class="nav-link" href="/controle">Control</a>
+                        <a class="nav-link active" href="/releve">Relevé</a>
+                        <a class="nav-link" href="/analyse">Analyse</a>
+                        <a class="nav-link" href="/prediction">Prédiction</a>
+                    </nav>
+                </div>
+                <div class="col-md-2 text-right d-flex align-items-center justify-content-end">
+                    <!-- Sélecteur d'années agrandi -->
+                    <select id="select-year" class="form-select me-2" style="height: 30px; width: 100px ; font-size: 18px; padding: 5px 5px; margin-right: 25px;">
+                    </select>
+                    <button id="logout-button" onclick="logout()" class="btn btn-danger">Déconnexion</button>
+                </div>
+            </div>
+        </div>
+    </header>
+    <div class="container">
+        <hr>
+        <div>
+            <h1 class="titre">Relevé de prix des produits</h1>
+        </div>
+        <hr>
+        <div class="select-container">
+            <div class="form-group">
+                <label for="villeSelect">Ville:</label>
+                <select class="form-control" id="villeSelect">
+                    <option value="">Sélectionnez une ville</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="moisSelect">Mois:</label>
+                <select class="form-control" id="moisSelect">
+                    <option value="">Sélectionnez un mois</option>
+                </select>
+            </div>
+        </div>
+        <hr>
+        <!-- Ajout de la barre de progression -->
+        <div id="progressContainer" style="display: none;">
+            <label>Progression des points de collecte validés :</label>
+            <div class="progress">
+                <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+            <p id="progressText">Progression : 0%</p>
+        </div>
+        <!-- Fin de l'ajout -->
+        <div id="loadingMessage">
+            <i class="fas fa-spinner fa-spin"></i> Chargement en cours...
+        </div>
+        <div id="waitingMessage" class="fade-in-out">
+            <i class="fas fa-info-circle"></i> Veuillez sélectionner une ville et un mois pour afficher les données.
+        </div>
+        <div class="export-container">
+            <!-- Vos boutons et liens pour l'exportation -->
+        </div>
+        <table class="table table-bordered" id="product-table">
+            <thead class="table-header tete">
+                <tr>
+                    <th>Code Produit</th>
+                    <th>Date Passage</th>
+                    <th>Ville</th>
+                    <th>No Carnet</th>
+                    <th>Prix Converti</th>
+                </tr>
+            </thead>
+            <tbody id="produitsTableBody">
+                <!-- Les lignes de produits seront insérées ici -->
+            </tbody>
+        </table>            
+        <div class="export-container">
+            <button id="exportExcelButton" class="btn btn-success">Exporter pour Phoenix</button>
+        </div>        
+    </div>
+    <script>
+        function logout() {
+            // Ajoutez ici votre logique de déconnexion
+            console.log("Déconnexion");
+        }
+
+        $(document).ready(function() {
+            $('#control').click(function() {
+                loadContent('/controle');
+            });
+
+            $('#releve').click(function() {
+                loadContent('/releve');
+            });
+
+            function loadContent(url) {
+                $.ajax({
+                    url: url,
+                    method: 'GET',
+                    success: function(data) {
+                        $('#content').html(data);
+                    },
+                    error: function(err) {
+                        console.error('Error loading content:', err);
+                    }
+                });
+            }
+        });
+    </script>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.18/jspdf.plugin.autotable.min.js"></script>
+    <script src="{{ url_for('static', filename='scriptR.js') }}"></script>
+</body>
+</html>
