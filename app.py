@@ -18,7 +18,9 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:DJONG2252WANg@localhost/prix_inseed_2'
+
+#  Remplace la ligne de connexion locale par celle-ci :
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:SyjWxXhRWPaVsTCyKPKoiMLryFOpJIjL@crossover.proxy.rlwy.net:33547/railway'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
@@ -3023,4 +3025,4 @@ port = int(os.environ.get("PORT", 5000))
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=port)
 
-    
+
