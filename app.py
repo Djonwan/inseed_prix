@@ -14,20 +14,10 @@ from sklearn.preprocessing import MinMaxScaler
 from io import BytesIO
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 
-import logging
-
-logging.basicConfig(level=logging.DEBUG)
 
 
 
 app = Flask(__name__)
-
-app.config.update(
-    SESSION_COOKIE_SECURE=True,    # obligatoire si Railway est en HTTPS
-    SESSION_COOKIE_SAMESITE='Lax',
-    SESSION_COOKIE_HTTPONLY=True
-)
-
 
 #  Remplace la ligne de connexion locale par celle-ci :
 #app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:DJONG2252WANg@localhost/prix_inseed_2'
@@ -231,7 +221,6 @@ def get_agent_data():
         # Vérifier si c'est un agent
         agent = Agent.query.filter_by(code_agent=code_id).first()
         if agent:
-            login_user(agent)
             ville = Ville.query.filter_by(id_ville=agent.id_ville).first()
             if not ville:
                 return jsonify({'error': 'Ville non trouvée'}), 404
@@ -265,7 +254,6 @@ def get_agent_data():
         # Vérifier si c'est un contrôleur
         controlleur = Controlleur.query.filter_by(code_controlleur=code_id).first()
         if controlleur:
-            login_user(controlleur)
             # Stocker les informations du contrôleur dans la session
             session['user_id'] = controlleur.code_controlleur
             session['user_name'] = controlleur.nom_controlleur
