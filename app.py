@@ -20,8 +20,8 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 app = Flask(__name__)
 
 #  Remplace la ligne de connexion locale par celle-ci :
-#app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:DJONG2252WANg@localhost/prix_inseed_2'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:SyjWxXhRWPaVsTCyKPKoiMLryFOpJIjL@crossover.proxy.rlwy.net:33547/railway'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:DJONG2252WANg@localhost/prix_inseed_2'
+#app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:SyjWxXhRWPaVsTCyKPKoiMLryFOpJIjL@crossover.proxy.rlwy.net:33547/railway'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['SESSION_COOKIE_SECURE'] = True  # Désactiver pour tester (Railway peut ne pas utiliser HTTPS en interne)
@@ -2285,12 +2285,11 @@ def dashboard(code_controlleur):
     )
 
 
-
 from flask import jsonify, session
 from sqlalchemy import distinct, extract
+from datetime import timedelta
 
 
-# Route pour récupérer les villes des agents contrôlés par le contrôleur connecté
 # Route pour récupérer les villes des agents contrôlés par le contrôleur connecté
 @app.route('/get_controlled_cities', methods=['GET'])
 def get_controlled_cities():
@@ -2301,8 +2300,8 @@ def get_controlled_cities():
     is_controlleur = session.get('is_controlleur', False)
     
     if is_controlleur:
-        # Si c'est un contrôleur, récupérer les villes des agents qu'il contrôle
-        controlled_agents = Agent_Controlleur.query.filter_by(code_controlleur=user_id).all()
+        # Récupérer les agents contrôlés par le contrôleur
+        controlled_agents = AgentControlleur.query.filter_by(code_controlleur=user_id).all()
         agent_codes = [ac.code_agent for ac in controlled_agents]
         agents = Agent.query.filter(Agent.code_agent.in_(agent_codes)).all()
         ville_ids = [agent.id_ville for agent in agents if agent.id_ville]
@@ -2314,9 +2313,8 @@ def get_controlled_cities():
 
     # Retourner la liste des villes avec la première comme défaut
     villes_data = [{'id_ville': ville.id_ville, 'nom_ville': ville.nom_ville} for ville in villes]
-    default_city = villes_data[0] if villes_data else None  # Première ville par défaut
+    default_city = villes_data[0] if villes_data else None
     return jsonify({'cities': villes_data, 'default_city': default_city})
-
 
 # Route pour récupérer les mois et années distincts de la table Prix
 @app.route('/get_price_dates', methods=['GET'])
@@ -2332,6 +2330,14 @@ def get_price_dates():
     
     # Récupérer les mois distincts pour l'année spécifiée ou la plus récente
     target_year = int(selected_year) if selected_year else (years[0] if years else None)
+    if not target_year:
+        return jsonify({
+            'years': [],
+            'months': [],
+            'default_year': None,
+            'default_month': None
+        })
+    
     months = db.session.query(distinct(extract('month', Prix.date_passage)).label('month')).filter(
         extract('year', Prix.date_passage) == target_year
     ).all()
@@ -2351,10 +2357,7 @@ def get_price_dates():
         'default_month': f"{months[0]:02d}" if months else None
     })
 
-from flask import jsonify, session, render_template
-from sqlalchemy import distinct, extract
-
-
+# Route pour récupérer les statistiques du contrôleur
 @app.route('/get_controller_stats', methods=['GET'])
 def get_controller_stats():
     if 'user_id' not in session:
@@ -2374,8 +2377,8 @@ def get_controller_stats():
     if not all([ville_id, month, year]):
         return jsonify({'error': 'Paramètres manquants (ville_id, month, year)'}), 400
     
-    # Récupérer les agents contrôlés par le contrôleur
-    controlled_agents = Agent_Controlleur.query.filter_by(code_controlleur=user_id).all()
+    # Récupérer les agents contrôlés par le contrôleur dans la ville spécifiée
+    controlled_agents = AgentControlleur.query.filter_by(code_controlleur=user_id).all()
     agent_codes = [ac.code_agent for ac in controlled_agents]
     agents = Agent.query.filter(Agent.code_agent.in_(agent_codes)).filter_by(id_ville=ville_id).all()
     
@@ -2389,21 +2392,27 @@ def get_controller_stats():
         })
     
     # Récupérer tous les carnets des agents
-    carnets = Carnet.query.filter(Carnet.code_agent.in_(agent_codes)).all()
-    carnet_ids = [carnet.id_carnet for carnet in carnets]
+    carnet_ids = [carnet.id_carnet for carnet in Carnet.query.filter(Carnet.code_agent.in_(agent_codes)).all()]
     
     # 1. Calculer le nombre total de points de collecte
-    total_points = PointCollecte.query.filter(PointCollecte.id_carnet.in_(carnet_ids)).count()
+    total_points = (
+        db.session.query(PointCollecte)
+        .join(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte)
+        .filter(Passage.id_carnet.in_(carnet_ids))
+        .distinct(PointCollecte.code_point_collecte)
+        .count()
+    )
     
-    # 2. Calculer le nombre de points de collecte ayant un prix (points_with_price)
+    # 2. Calculer le nombre de points de collecte ayant un prix
     points_with_price = (
         db.session.query(PointCollecte)
-        .join(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte, isouter=True)
-        .join(Prix, Prix.id_passage == Passage.id_passage, isouter=True)
-        .filter(PointCollecte.id_carnet.in_(carnet_ids))
+        .join(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte)
+        .join(Releve, Releve.id_passage == Passage.id_passage)
+        .join(Prix, Prix.id_releve == Releve.id_releve)
+        .filter(Passage.id_carnet.in_(carnet_ids))
         .filter(
-            (extract('month', Prix.date_passage) == int(month)) &
-            (extract('year', Prix.date_passage) == int(year))
+            extract('month', Prix.date_passage) == int(month),
+            extract('year', Prix.date_passage) == int(year)
         )
         .distinct(PointCollecte.code_point_collecte)
         .count()
@@ -2418,12 +2427,13 @@ def get_controller_stats():
     
     points_with_status = (
         db.session.query(PointCollecte, Prix.statut)
-        .join(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte, isouter=True)
-        .join(Prix, Prix.id_passage == Passage.id_passage, isouter=True)
-        .filter(PointCollecte.id_carnet.in_(carnet_ids))
+        .join(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte)
+        .join(Releve, Releve.id_passage == Passage.id_passage)
+        .join(Prix, Prix.id_releve == Releve.id_releve)
+        .filter(Passage.id_carnet.in_(carnet_ids))
         .filter(
-            (extract('month', Prix.date_passage) == int(month)) &
-            (extract('year', Prix.date_passage) == int(year))
+            extract('month', Prix.date_passage) == int(month),
+            extract('year', Prix.date_passage) == int(year)
         )
         .distinct(PointCollecte.code_point_collecte)
         .all()
@@ -2444,9 +2454,7 @@ def get_controller_stats():
     
     return jsonify(stats)
 
-
-
-
+# Route pour récupérer la progression des agents
 @app.route('/get_agent_progress', methods=['GET'])
 def get_agent_progress():
     if 'user_id' not in session:
@@ -2462,8 +2470,9 @@ def get_agent_progress():
     if not all([ville_id, month, year]):
         return jsonify({'error': 'Paramètres manquants (ville_id, month, year)'}), 400
     
+    # Récupérer les agents (contrôleur ou agent)
     if is_controlleur:
-        controlled_agents = Agent_Controlleur.query.filter_by(code_controlleur=user_id).all()
+        controlled_agents = AgentControlleur.query.filter_by(code_controlleur=user_id).all()
         agent_codes = [ac.code_agent for ac in controlled_agents]
         agents = Agent.query.filter(Agent.code_agent.in_(agent_codes)).filter_by(id_ville=ville_id).all()
     else:
@@ -2471,28 +2480,36 @@ def get_agent_progress():
     
     agent_progress = []
     for agent in agents:
+        # Récupérer les carnets de l'agent
         carnets = Carnet.query.filter_by(code_agent=agent.code_agent).all()
+        carnet_ids = [carnet.id_carnet for carnet in carnets]
+        
+        # Initialiser les compteurs
         total_points = 0
         completed_points = 0
-        points_by_status = {'Valider': 0, 'Rejeter': 0, 'ajuster': 0, 'null': 0}
+        points_by_status = {'Valider': 0, 'Rejeter': 0, 'Ajuster': 0, 'null': 0}
         
         # Récupérer tous les points de collecte pour cet agent
-        all_points = []
-        for carnet in carnets:
-            points = PointCollecte.query.filter_by(id_carnet=carnet.id_carnet).all()
-            all_points.extend(points)
-            total_points += len(points)
+        all_points = (
+            db.session.query(PointCollecte)
+            .join(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte)
+            .filter(Passage.id_carnet.in_(carnet_ids))
+            .distinct(PointCollecte.code_point_collecte)
+            .all()
+        )
+        total_points = len(all_points)
         
         # Récupérer les points de collecte avec des prix pour le mois et l'année sélectionnés
         completed_point_ids = set()
         points_with_status = (
             db.session.query(PointCollecte, Prix.statut)
-            .join(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte, isouter=True)
-            .join(Prix, Prix.id_passage == Passage.id_passage, isouter=True)
-            .filter(PointCollecte.id_carnet.in_([carnet.id_carnet for carnet in carnets]))
+            .join(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte)
+            .join(Releve, Releve.id_passage == Passage.id_passage)
+            .join(Prix, Prix.id_releve == Releve.id_releve)
+            .filter(Passage.id_carnet.in_(carnet_ids))
             .filter(
-                (extract('month', Prix.date_passage) == int(month)) &
-                (extract('year', Prix.date_passage) == int(year))
+                extract('month', Prix.date_passage) == int(month),
+                extract('year', Prix.date_passage) == int(year)
             )
             .distinct(PointCollecte.code_point_collecte)
             .all()
@@ -2500,30 +2517,27 @@ def get_agent_progress():
         
         for point, statut in points_with_status:
             completed_point_ids.add(point.code_point_collecte)
-            if statut == 'Valider':
-                points_by_status['Valider'] += 1
-            elif statut == 'Rejeter':
-                points_by_status['Rejeter'] += 1
-            elif statut == 'Ajuster':
-                points_by_status['ajuster'] += 1
+            if statut in points_by_status:
+                points_by_status[statut] += 1
             else:
                 points_by_status['null'] += 1
         
-        # Calculer les points restants (ceux qui n'ont pas de statut)
+        # Calculer les points restants (ceux qui n'ont pas de prix)
         remaining_points = (
-            PointCollecte.query
-            .filter(PointCollecte.id_carnet.in_([carnet.id_carnet for carnet in carnets]))
+            db.session.query(PointCollecte)
+            .join(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte)
+            .filter(Passage.id_carnet.in_(carnet_ids))
             .filter(~PointCollecte.code_point_collecte.in_(completed_point_ids))
             .count()
         )
         
-        completed_points = sum(points_by_status.values())
+        completed_points = len(completed_point_ids)
         progress = (completed_points / total_points * 100) if total_points > 0 else 0
         
         progress_by_status = {
             'Valider': (points_by_status['Valider'] / total_points * 100) if total_points > 0 else 0,
             'Rejeter': (points_by_status['Rejeter'] / total_points * 100) if total_points > 0 else 0,
-            'ajuster': (points_by_status['ajuster'] / total_points * 100) if total_points > 0 else 0,
+            'Ajuster': (points_by_status['Ajuster'] / total_points * 100) if total_points > 0 else 0,
             'null': (points_by_status['null'] / total_points * 100) if total_points > 0 else 0,
             'remaining': (remaining_points / total_points * 100) if total_points > 0 else 0
         }
@@ -2532,7 +2546,7 @@ def get_agent_progress():
             'nom_agent': agent.nom_agent,
             'total_points': total_points,
             'completed_points': completed_points,
-            'remaining_points': remaining_points,  # Ajouter les points restants
+            'remaining_points': remaining_points,
             'progress': round(progress, 2),
             'points_by_status': points_by_status,
             'progress_by_status': progress_by_status
@@ -2541,7 +2555,7 @@ def get_agent_progress():
     return jsonify(agent_progress)
 
 
-# Route mise à jour pour retourner une structure hiérarchique avec les points par statut et les points restants
+# Route pour récupérer la progression des carnets
 @app.route('/get_carnet_progress', methods=['GET'])
 def get_carnet_progress():
     if 'user_id' not in session:
@@ -2560,7 +2574,7 @@ def get_carnet_progress():
     
     # Si c'est un contrôleur, récupérer ses agents
     if is_controlleur:
-        controlled_agents = Agent_Controlleur.query.filter_by(code_controlleur=user_id).all()
+        controlled_agents = AgentControlleur.query.filter_by(code_controlleur=user_id).all()
         agent_codes = [ac.code_agent for ac in controlled_agents]
         agents = Agent.query.filter(Agent.code_agent.in_(agent_codes)).filter_by(id_ville=ville_id).all()
     else:
@@ -2574,48 +2588,52 @@ def get_carnet_progress():
         carnets_data = []
         
         for carnet in carnets:
-            # Récupérer tous les points de collecte associés au carnet
-            total_points = PointCollecte.query.filter_by(id_carnet=carnet.id_carnet).count()
+            # Récupérer tous les points de collecte associés au carnet via Passage
+            total_points = (
+                db.session.query(PointCollecte)
+                .join(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte)
+                .filter(Passage.id_carnet == carnet.id_carnet)
+                .distinct(PointCollecte.code_point_collecte)
+                .count()
+            )
             
             # Récupérer les points de collecte avec des prix pour le mois et l'année sélectionnés, par statut
             points_by_status = {
                 'Valider': 0,
                 'Rejeter': 0,
-                'ajuster': 0,
+                'Ajuster': 0,
                 'null': 0
             }
             
             # Récupérer les points de collecte distincts avec leurs statuts
             points_with_status = (
                 db.session.query(PointCollecte, Prix.statut)
-                .join(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte, isouter=True)
-                .join(Prix, Prix.id_passage == Passage.id_passage, isouter=True)
-                .filter(PointCollecte.id_carnet == carnet.id_carnet)
+                .join(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte)
+                .join(Releve, Releve.id_passage == Passage.id_passage)
+                .join(Prix, Prix.id_releve == Releve.id_releve, isouter=True)
+                .filter(Passage.id_carnet == carnet.id_carnet)
                 .filter(
-                    (extract('month', Prix.date_passage) == int(month)) &
-                    (extract('year', Prix.date_passage) == int(year))
+                    extract('month', Prix.date_passage) == int(month),
+                    extract('year', Prix.date_passage) == int(year)
                 )
                 .distinct(PointCollecte.code_point_collecte)
                 .all()
             )
             
             # Compter les points par statut
-            completed_point_ids = set()  # Garder une trace des points complétés
+            completed_point_ids = set()
             for point, statut in points_with_status:
                 completed_point_ids.add(point.code_point_collecte)
-                if statut == 'Valider':
-                    points_by_status['Valider'] += 1
-                elif statut == 'Rejeter':
-                    points_by_status['Rejeter'] += 1
-                elif statut == 'Ajuster':
-                    points_by_status['ajuster'] += 1
-                else:  # Si statut est null ou autre
+                if statut in points_by_status:
+                    points_by_status[statut] += 1
+                else:
                     points_by_status['null'] += 1
             
-            # Calculer les points restants (ceux qui n'ont pas de statut)
+            # Calculer les points restants (ceux qui n'ont pas de prix)
             remaining_points = (
-                PointCollecte.query
-                .filter_by(id_carnet=carnet.id_carnet)
+                db.session.query(PointCollecte)
+                .join(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte)
+                .filter(Passage.id_carnet == carnet.id_carnet)
                 .filter(~PointCollecte.code_point_collecte.in_(completed_point_ids))
                 .count()
             )
@@ -2624,12 +2642,12 @@ def get_carnet_progress():
             progress_by_status = {
                 'Valider': (points_by_status['Valider'] / total_points * 100) if total_points > 0 else 0,
                 'Rejeter': (points_by_status['Rejeter'] / total_points * 100) if total_points > 0 else 0,
-                'ajuster': (points_by_status['ajuster'] / total_points * 100) if total_points > 0 else 0,
+                'Ajuster': (points_by_status['Ajuster'] / total_points * 100) if total_points > 0 else 0,
                 'null': (points_by_status['null'] / total_points * 100) if total_points > 0 else 0,
                 'remaining': (remaining_points / total_points * 100) if total_points > 0 else 0
             }
             
-            # Total des points complétés (tous statuts confondus)
+            # Total des points complétés
             completed_points = sum(points_by_status.values())
             progress = (completed_points / total_points * 100) if total_points > 0 else 0
             
@@ -2637,7 +2655,7 @@ def get_carnet_progress():
                 'nom_carnet': carnet.nom_carnet,
                 'total_points': total_points,
                 'completed_points': completed_points,
-                'remaining_points': remaining_points,  # Ajouter les points restants
+                'remaining_points': remaining_points,
                 'progress': round(progress, 2),
                 'points_by_status': points_by_status,
                 'progress_by_status': progress_by_status
@@ -2650,152 +2668,7 @@ def get_carnet_progress():
     
     return jsonify(agent_carnet_progress)
 
-
-# @app.route('/get_controlled_points', methods=['GET'])
-# def get_controlled_points():
-#     if 'user_id' not in session:
-#         return jsonify({'error': 'Utilisateur non connecté'}), 401
-    
-#     user_id = session['user_id']
-#     is_controlleur = session.get('is_controlleur', False)
-    
-#     if not is_controlleur:
-#         return jsonify({'error': 'Seuls les contrôleurs peuvent accéder à cette ressource'}), 403
-    
-#     # Récupérer les paramètres de la requête
-#     ville_id = request.args.get('ville_id')
-#     month = request.args.get('month')
-#     year = request.args.get('year')
-#     agent_code = request.args.get('agent_code')  # Optionnel
-#     carnet_id = request.args.get('carnet_id')    # Optionnel
-#     statut = request.args.get('statut')          # Optionnel ("Rejeter", "Valider", "Ajuster", "tout")
-    
-#     if not all([ville_id, month, year]):
-#         return jsonify({'error': 'Paramètres manquants (ville_id, month, year)'}), 400
-    
-#     # Récupérer les agents contrôlés par le contrôleur
-#     controlled_agents = Agent_Controlleur.query.filter_by(code_controlleur=user_id).all()
-#     agent_codes = [ac.code_agent for ac in controlled_agents]
-#     agents = Agent.query.filter(Agent.code_agent.in_(agent_codes)).filter_by(id_ville=ville_id).all()
-    
-#     # Filtrer les agents si un agent spécifique est sélectionné
-#     if agent_code:
-#         agents = [agent for agent in agents if agent.code_agent == agent_code]
-    
-#     # Préparer la liste des points de collecte
-#     points_data = []
-    
-#     for agent in agents:
-#         # Récupérer les carnets de l'agent
-#         carnets = Carnet.query.filter_by(code_agent=agent.code_agent).all()
-        
-#         if carnet_id:
-#             carnets = [carnet for carnet in carnets if str(carnet.id_carnet) == carnet_id]
-        
-#         for carnet in carnets:
-#             # Récupérer les points de collecte associés au carnet
-#             query = (
-#                 db.session.query(PointCollecte, Prix.statut, db.func.count(Prix.code_produit).label('product_count'))
-#                 .join(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte, isouter=True)
-#                 .join(Prix, Prix.id_passage == Passage.id_passage, isouter=True)
-#                 .filter(PointCollecte.id_carnet == carnet.id_carnet)
-#                 .filter(
-#                     (extract('month', Prix.date_passage) == int(month)) &
-#                     (extract('year', Prix.date_passage) == int(year))
-#                 )
-#             )
-            
-#             # Appliquer le filtre par statut si spécifié
-#             if statut and statut != 'tout':
-#                 query = query.filter(Prix.statut == statut)
-            
-#             # Exécuter la requête et regrouper par point de collecte
-#             points = query.group_by(PointCollecte.code_point_collecte, Prix.statut).all()
-            
-#             # Ajouter les points avec statut null ou sans passage si "tout" est sélectionné
-#             if not statut or statut == 'tout':
-#                 remaining_points = (
-#                     PointCollecte.query
-#                     .filter_by(id_carnet=carnet.id_carnet)
-#                     .outerjoin(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte)
-#                     .outerjoin(Prix, Prix.id_passage == Passage.id_passage)
-#                     .filter(Prix.id_prix.is_(None))
-#                     .all()
-#                 )
-#                 for point in remaining_points:
-#                     product_count = PointCollecteProduit.query.filter_by(code_point_collecte=point.code_point_collecte).count()
-#                     points_data.append({
-#                         'code_point_collecte': point.code_point_collecte,
-#                         'nom_point_collecte': point.nom_point_collecte,
-#                         'statut': None,  # Null pour les points sans statut
-#                         'product_count': product_count,
-#                         'agent': agent.nom_agent,
-#                         'carnet': carnet.nom_carnet
-#                     })
-            
-#             # Ajouter les points trouvés avec leurs statuts
-#             for point, statut_value, product_count in points:
-#                 points_data.append({
-#                     'code_point_collecte': point.code_point_collecte,
-#                     'nom_point_collecte': point.nom_point_collecte,
-#                     'statut': statut_value,
-#                     'product_count': product_count,
-#                     'agent': agent.nom_agent,
-#                     'carnet': carnet.nom_carnet
-#                 })
-    
-#     return jsonify(points_data)
-
-
-# @app.route('/get_collection_points', methods=['GET'])
-# def get_collection_points():
-#     if 'user_id' not in session:
-#         return jsonify({'error': 'Utilisateur non connecté'}), 401
-
-#     user_id = session['user_id']
-#     is_controlleur = session.get('is_controlleur', False)
-#     selected_city = request.args.get('city')  # Récupérer la ville sélectionnée
-
-#     if not is_controlleur:
-#         return jsonify({'error': 'Utilisateur non autorisé'}), 403
-
-#     # Récupérer les agents contrôlés par le contrôleur connecté
-#     controlled_agents = Agent_Controlleur.query.filter_by(code_controlleur=user_id).all()
-#     agent_codes = [ac.code_agent for ac in controlled_agents]
-
-#     # Construire la requête pour les points de collecte
-#     query = db.session.query(PointCollecte).join(Carnet).join(Agent).filter(
-#         Agent.code_agent.in_(agent_codes)
-#     )
-
-#     # Filtrer par ville si une ville est sélectionnée
-#     if selected_city:
-#         query = query.filter(Agent.id_ville == selected_city)
-
-#     points = query.all()
-
-#     # Préparer les données pour le JSON
-#     points_data = []
-#     for point in points:
-#         # Compter le nombre de produits associés au point de collecte
-#         nb_produits = PointCollecteProduit.query.filter_by(code_point_collecte=point.code_point_collecte).count()
-
-#         # Récupérer le statut le plus récent depuis la table Prix (si applicable)
-#         dernier_prix = Prix.query.filter_by(code_produit=point.code_point_collecte).order_by(Prix.date_passage.desc()).first()
-#         statut = dernier_prix.statut if dernier_prix else "Non défini"
-
-#         points_data.append({
-#             'code_point_collecte': point.code_point_collecte,
-#             'nom_point_collecte': point.nom_point_collecte,
-#             'nb_produits': nb_produits,
-#             'statut': statut,
-#             'agent': point.carnet.agent.nom_agent if point.carnet and point.carnet.agent else "Non assigné",
-#             'carnet': point.carnet.nom_carnet if point.carnet else "Non assigné"
-#         })
-
-#     return jsonify({'points': points_data})
-
-
+# Route pour récupérer les points de collecte
 @app.route('/get_collection_points', methods=['GET'])
 def get_collection_points():
     if 'user_id' not in session:
@@ -2803,27 +2676,31 @@ def get_collection_points():
 
     user_id = session['user_id']
     is_controlleur = session.get('is_controlleur', False)
-    selected_city = request.args.get('city')  # Ville sélectionnée
-    selected_month = request.args.get('month')  # Mois sélectionné (ex: "03")
-    selected_year = request.args.get('year')  # Année sélectionnée (ex: "2025")
+    selected_city = request.args.get('city')
+    selected_month = request.args.get('month')
+    selected_year = request.args.get('year')
 
     if not is_controlleur:
         return jsonify({'error': 'Utilisateur non autorisé'}), 403
 
     # Récupérer les agents contrôlés par le contrôleur connecté
-    controlled_agents = Agent_Controlleur.query.filter_by(code_controlleur=user_id).all()
+    controlled_agents = AgentControlleur.query.filter_by(code_controlleur=user_id).all()
     agent_codes = [ac.code_agent for ac in controlled_agents]
 
     # Construire la requête pour les points de collecte
-    query = db.session.query(PointCollecte).join(Carnet).join(Agent).filter(
-        Agent.code_agent.in_(agent_codes)
+    query = (
+        db.session.query(PointCollecte)
+        .join(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte)
+        .join(Carnet, Carnet.id_carnet == Passage.id_carnet)
+        .join(Agent, Agent.code_agent == Carnet.code_agent)
+        .filter(Agent.code_agent.in_(agent_codes))
     )
 
     # Filtrer par ville si une ville est sélectionnée
     if selected_city:
         query = query.filter(Agent.id_ville == selected_city)
 
-    points = query.all()
+    points = query.distinct(PointCollecte.code_point_collecte).all()
 
     # Préparer les données pour le JSON
     points_data = []
@@ -2832,8 +2709,11 @@ def get_collection_points():
         nb_produits = PointCollecteProduit.query.filter_by(code_point_collecte=point.code_point_collecte).count()
 
         # Récupérer le statut le plus récent depuis la table Prix pour la date choisie
-        statut_query = Prix.query.join(Passage).filter(
-            Passage.code_point_collecte == point.code_point_collecte
+        statut_query = (
+            db.session.query(Prix)
+            .join(Releve, Releve.id_releve == Prix.id_releve)
+            .join(Passage, Passage.id_passage == Releve.id_passage)
+            .filter(Passage.code_point_collecte == point.code_point_collecte)
         )
         if selected_year and selected_month:
             statut_query = statut_query.filter(
@@ -2843,26 +2723,20 @@ def get_collection_points():
         dernier_prix = statut_query.order_by(Prix.date_passage.desc()).first()
 
         # Déterminer le statut
-        if dernier_prix:
-            statut = dernier_prix.statut if dernier_prix.statut else "Non traité"  # Si null, "Non traité"
-        else:
-            statut = "Non collecté"  # Pas d'enregistrement dans Prix
+        statut = dernier_prix.statut if dernier_prix and dernier_prix.statut else "Non traité"
 
         points_data.append({
             'code_point_collecte': point.code_point_collecte,
             'nom_point_collecte': point.nom_point_collecte,
             'nb_produits': nb_produits,
             'statut': statut,
-            'agent': point.carnet.agent.nom_agent if point.carnet and point.carnet.agent else "Non assigné",
-            'carnet': point.carnet.nom_carnet if point.carnet else "Non assigné"
+            'agent': point.passages[0].carnet.agent.nom_agent if point.passages else "Non assigné",
+            'carnet': point.passages[0].carnet.nom_carnet if point.passages else "Non assigné"
         })
     
     return jsonify({'points': points_data})
 
-
-from datetime import datetime, timedelta
-from sqlalchemy import extract
-
+# Route pour récupérer les points de collecte en retard
 @app.route('/get_delayed_collection_points', methods=['GET'])
 def get_delayed_collection_points():
     if 'user_id' not in session:
@@ -2876,24 +2750,26 @@ def get_delayed_collection_points():
 
     # Date actuelle
     today = datetime.today().date()
-    threshold_date = today - timedelta(days=5)  # 5 jours avant aujourd'hui
+    threshold_date = today - timedelta(days=5)
 
     # Récupérer les agents contrôlés par le contrôleur connecté
-    controlled_agents = Agent_Controlleur.query.filter_by(code_controlleur=user_id).all()
+    controlled_agents = AgentControlleur.query.filter_by(code_controlleur=user_id).all()
     agent_codes = [ac.code_agent for ac in controlled_agents]
 
     # Requête pour les points de collecte avec statut "Ajuster" ou "Rejeter" en retard
     delayed_points = (
         db.session.query(PointCollecte, Prix)
         .join(Passage, Passage.code_point_collecte == PointCollecte.code_point_collecte)
-        .join(Prix, Prix.id_passage == Passage.id_passage)
-        .join(Carnet, Carnet.id_carnet == PointCollecte.id_carnet)
+        .join(Releve, Releve.id_passage == Passage.id_passage)
+        .join(Prix, Prix.id_releve == Releve.id_releve)
+        .join(Carnet, Carnet.id_carnet == Passage.id_carnet)
         .join(Agent, Agent.code_agent == Carnet.code_agent)
         .filter(
             Agent.code_agent.in_(agent_codes),
             Prix.statut.in_(['Ajuster', 'Rejeter']),
             Prix.date_passage <= threshold_date
         )
+        .distinct(PointCollecte.code_point_collecte)
         .all()
     )
 
@@ -2907,21 +2783,14 @@ def get_delayed_collection_points():
             'nom_point_collecte': point.nom_point_collecte,
             'statut': prix.statut,
             'date_passage': prix.date_passage.strftime('%Y-%m-%d'),
-            'agent': point.carnet.agent.nom_agent if point.carnet and point.carnet.agent else "Non assigné",
-            'carnet': point.carnet.nom_carnet if point.carnet else "Non assigné",
+            'agent': point.passages[0].carnet.agent.nom_agent if point.passages else "Non assigné",
+            'carnet': point.passages[0].carnet.nom_carnet if point.passages else "Non assigné",
             'message': message
         })
 
     return jsonify({'alerts': alerts})
 
-
-
-
-
-from flask import jsonify, session
-from datetime import datetime
-from sqlalchemy import extract
-
+# Route pour récupérer la progression des carnets d'un agent
 @app.route('/get_agent_carnet_progress', methods=['GET'])
 def get_agent_carnet_progress():
     if 'user_id' not in session:
@@ -2958,7 +2827,7 @@ def get_agent_carnet_progress():
         points_by_status = {
             'Valider': 0,
             'Rejeter': 0,
-            'ajuster': 0,
+            'Ajuster': 0,
             'null': 0
         }
         
@@ -2967,8 +2836,8 @@ def get_agent_carnet_progress():
             .join(Prix, Prix.id_releve == Releve.id_releve, isouter=True)
             .filter(Releve.id_passage.in_(passage_ids))
             .filter(
-                (extract('month', Prix.date_passage) == current_month) &
-                (extract('year', Prix.date_passage) == current_year)
+                extract('month', Prix.date_passage) == current_month,
+                extract('year', Prix.date_passage) == current_year
             )
             .distinct(Releve.id_releve)
             .all()
@@ -2978,12 +2847,8 @@ def get_agent_carnet_progress():
         completed_point_ids = set()
         for releve, statut in points_with_status:
             completed_point_ids.add(releve.id_releve)
-            if statut == 'Valider':
-                points_by_status['Valider'] += 1
-            elif statut == 'Rejeter':
-                points_by_status['Rejeter'] += 1
-            elif statut == 'Ajuster':
-                points_by_status['ajuster'] += 1
+            if statut in points_by_status:
+                points_by_status[statut] += 1
             else:
                 points_by_status['null'] += 1
         
@@ -2999,7 +2864,7 @@ def get_agent_carnet_progress():
         progress_by_status = {
             'Valider': (points_by_status['Valider'] / total_points * 100) if total_points > 0 else 0,
             'Rejeter': (points_by_status['Rejeter'] / total_points * 100) if total_points > 0 else 0,
-            'ajuster': (points_by_status['ajuster'] / total_points * 100) if total_points > 0 else 0,
+            'Ajuster': (points_by_status['Ajuster'] / total_points * 100) if total_points > 0 else 0,
             'null': (points_by_status['null'] / total_points * 100) if total_points > 0 else 0,
             'remaining': (remaining_points / total_points * 100) if total_points > 0 else 0
         }
@@ -3022,6 +2887,8 @@ def get_agent_carnet_progress():
         'nom_agent': agent.nom_agent,
         'carnets': carnets_data
     })
+
+
 
 
 
