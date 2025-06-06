@@ -20,8 +20,8 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 app = Flask(__name__)
 
 #  Remplace la ligne de connexion locale par celle-ci :
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:DJONG2252WANg@localhost/prix_inseed_2'
-#app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:SyjWxXhRWPaVsTCyKPKoiMLryFOpJIjL@crossover.proxy.rlwy.net:33547/railway'
+#app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:DJONG2252WANg@localhost/prix_inseed_2'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:SyjWxXhRWPaVsTCyKPKoiMLryFOpJIjL@crossover.proxy.rlwy.net:33547/railway'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['SESSION_COOKIE_SECURE'] = True  # Désactiver pour tester (Railway peut ne pas utiliser HTTPS en interne)
