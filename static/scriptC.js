@@ -394,37 +394,41 @@ $(document).ready(function() {
         error: function(error) {
             console.log("Error fetching data: ", error);
         }
-    });      
-
-    // Charger les agents lorsque la ville change
+    }); 
+    
+    
     $('#villeSelect').change(function() {
-        var villeId = $(this).val();
-        var agentSelect = $('#agentSelect');
-        agentSelect.empty();
-        agentSelect.append('<option value="">Sélectionnez un agent</option>');
-        $('#typePointCollecte').empty().append('<option value="">Sélectionnez un type de point de collecte</option>');
-        $('#carnetSelect').empty().append('<option value="">Sélectionnez un carnet</option>');
-        $('#pointCollecte').empty().append('<option value="">Sélectionnez un point de collecte</option>');
-        $('#typeSelect').empty().append('<option value="">Sélectionnez un type de produit</option>');
-        $('#moisSelect').empty().append('<option value="">Sélectionnez un mois</option>');
+    var villeId = $(this).val();
+    var agentSelect = $('#agentSelect');
+    agentSelect.empty();
+    agentSelect.append('<option value="">Sélectionnez un agent</option>');
+    $('#typePointCollecte').empty().append('<option value="">Sélectionnez un type de point de collecte</option>');
+    $('#carnetSelect').empty().append('<option value="">Sélectionnez un carnet</option>');
+    $('#pointCollecte').empty().append('<option value="">Sélectionnez un point de collecte</option>');
+    $('#typeSelect').empty().append('<option value="">Sélectionnez un type de produit</option>');
+    $('#moisSelect').empty().append('<option value="">Sélectionnez un mois</option>');
 
-        if (villeId) {
-            $.ajax({
-                url: '/api/villes/' + villeId + '/agents',
-                method: 'GET',
-                success: function(data) {
-                    data.forEach(function(agent) {
-                         agentSelect.append('<option value="' + agent.code_agent + '">' + agent.nom_agent + '</option>');
-                    });
-                },
-                error: function(error) {
-                    console.log("Error fetching data: ", error);
-                }
-            });
-        }
+    if (villeId) {
+        $.ajax({
+            url: '/api/villes/' + villeId + '/agents',
+            method: 'GET',
+            xhrFields: {
+                withCredentials: true
+            },
+            success: function(data) {
+                data.forEach(function(agent) {
+                    agentSelect.append('<option value="' + agent.code_agent + '">' + agent.nom_agent + '</option>');
+                });
+            },
+            error: function(error) {
+                console.log("Error fetching data: ", error);
+            }
+        });
+    }
+    checkSelections();
+ });
 
-        checkSelections();
-    });
+    
 
     //selectionner l'annee
     var selectYear = $('#select-year');
