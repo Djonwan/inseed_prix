@@ -20,6 +20,7 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 app = Flask(__name__)
 
 #  Remplace la ligne de connexion locale par celle-ci :
+#app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:DJONG2252WANg@localhost/prix_inseed_2'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:SyjWxXhRWPaVsTCyKPKoiMLryFOpJIjL@crossover.proxy.rlwy.net:33547/railway'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -3022,7 +3023,6 @@ def get_agent_carnet_progress():
 
 port = int(os.environ.get("PORT", 5000))
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=port)
 
-
+if __name__ == '__main__':
+    app.run(debug=True)
