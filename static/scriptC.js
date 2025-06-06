@@ -1084,7 +1084,12 @@ $(document).ready(function() {
         });
     });
 
-
+    // Fonction de déconnexion
+    window.logout = function () {
+        fetch('/logout', { method: 'POST' })
+            .then(() => window.location.href = '/')
+            .catch(error => console.error('Erreur lors de la déconnexion:', error));
+    };
         
 
 });

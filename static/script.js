@@ -613,7 +613,7 @@ async function login() {
             alert(`Erreur : ${user.error}`);
         } else {
             if (user.is_controlleur) {
-                window.location.href = '/controle';
+                window.location.href = '/dashboard';
             } else {
                 const mainContainer = document.getElementById('main-container');
                 if (mainContainer) {
